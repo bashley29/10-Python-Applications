@@ -1,1 +1,172 @@
+BACKEND 
+
+from flask import Flask, render_template, request
+from flask_sqlalchemy import SQLAlchemy
+from send_email import send_email
+from sqlalchemy.sql import func
+
+app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:postgres123@localhost/height_collector"
+db = SQLAlchemy(app)
+
+class Data(db.Model):
+    __tablename__ = "data"
+    id = db.Column(db.Integer, primary_key = True)
+    email_ = db.Column(db.String(120), unique=True)
+    height_ = db.Column(db.Integer)
+
+    def __init__(self, email_, height_):
+        self.email_=email_
+        self.height_=height_
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/success", methods = ['POST'])
+def success():
+    if request.method == 'POST':
+        email = request.form["email_name"]
+        height = request.form["height_name"]
+        if db.session.query(Data).filter(Data.email_==email).count() == 0:
+            data = Data(email, height)
+            db.session.add(data)
+            db.session.commit()
+            average_height = db.session.query(func.avg(Data.height_)).scalar()
+            average_height = round(average_height, 1)
+            count = db.session.query(Data.height_).count()
+            send_email(email, height, average_height, count)
+            return render_template("success.html")
+        return render_template("index.html", text = "This email address has already been used!")
+
+if __name__ == '__main__':
+    app.debug = True
+    app.run()
+
+____________________
+
+FRONTEND PAGE 1
+
+<!DOCTYPE html>
+<html lang="en">
+  <title> Data Collector App</title>
+  <head>
+    <link href = "../static/main.css" rel = "stylesheet">
+  </head>
+    <body>
+      <div class = "container">
+        <h1>Collecting Height</h1>
+        <h3>Please fill the entries to get population statistics on height</h3>
+        <div class = "message">
+          {{text | safe}}
+        </div>
+        <form action = "{{url_for('success')}}" method = "POST">
+          <input title = "Your email will be safe with us" placeholder = "Enter your email address" type = "email" name = "email_name" required> <br>
+          <input title = "Your data will be safe with us" placeholder = "Enter your height in cm" type = "number" min = "50", max = "300" name = "height_name" required> <br>
+          <button type = "Submit"> Submit </button>
+        </form>
+      </div>
+    </body>
+</html>
+
+____________________
+
+FRONTEND PAGE 2
+
+<!DOCTYPE html>
+<html lang="en">
+  <title> Data Collector App</title>
+  <head>
+    <link href = "../static/main.css" rel = "stylesheet">
+  </head>
+    <body>
+      <div class = "container">
+        <p> Thank you for your submission! <br>
+          You will recieve an email with the survey results shortly.
+        </p>
+      </div>
+    </body>
+</html>
+
+____________________
+
+CSS STYLING
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+.container {
+  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  background-color: #006666;
+  color: #e6ffff;
+  overflow: hidden;
+  text-align: center;
+}
+
+.container h1 {
+  font-family: Arial, sans-serif;
+  font-size: 30px;
+  color: #DDCCEE;
+  margin-top: 80px;
+}
+
+.container form {
+  margin: 20px;
+}
+
+.container input {
+  width: 350px;
+  height: 15px;
+  font-size: 15px;
+  margin: 2px;
+  padding: 20px;
+  transition: all 0.2s ease-in-out;
+}
+
+.container button {
+  width: 70px;
+  height: 30px;
+  background-color: steelblue;
+  margin: 3px;
+}
+
+.container p {
+  margin: 100px;
+}
+
+.message {
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+
+____________________
+
+SEND EMAIL FUNCTION
+
+from email.mime.text import MIMEText
+import smtplib
+
+def send_email(email, height, average_height, count):
+    from_email = "databaseWebAppEmail@gmail.com"
+    from_password = "email&height"
+    to_email = email
+
+    subject = "Height Data"
+    message = "Hey there, your height is <strong>%s</strong>. Average height of all is <strong>%s</strong> from a total of <strong>%s</strong> people." % (height, average_height, count)
+
+    msg = MIMEText(message, 'html')
+    msg['Subject'] = subject
+    msg['To'] = to_email
+    msg['From'] = from_email
+
+    gmail = smtplib.SMTP('smtp.gmail.com', 587)
+    gmail.ehlo()
+    gmail.starttls()
+    gmail.login(from_email, from_password)
+    gmail.send_message(msg)
+
 
