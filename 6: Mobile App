@@ -1,4 +1,4 @@
-DESIGN
+FRONTEND
 
 <LoginScreen>:
     GridLayout:
@@ -108,7 +108,7 @@ DESIGN
 
 _____________________
 
-FUNCTIONALITY
+BACKEND
 
 from kivy.app import App
 from kivy.lang import Builder
