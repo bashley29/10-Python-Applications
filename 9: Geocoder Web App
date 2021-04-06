@@ -1,0 +1,126 @@
+FRONTEND
+
+<!DOCTYPE html>
+<html lang="en">
+<title> Super Geocoder </title>
+<head>
+  <link href="../static/main.css" rel="stylesheet">
+</head>
+  <body>
+    <div class="container">
+      <h1>Super Geocoder</h1>
+      <h3>Please upload your CSV file. The values containing addresses should be in a column named <em>address</em> or <em>Address</em></h3>
+        <form action="{{url_for('success_table')}}" method="POST" enctype="multipart/form-data">
+          <input type="file" accept=".csv" name="file" />
+          <button type="submit"> Submit </button>
+        </form>
+      <div class="output">
+        {{text|safe}}
+        {% include btn ignore missing %}
+      </div>
+  </div>
+  </body>
+</html>
+
+____________________
+
+CSS Styling
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+.container {
+  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  background-color: #006666;
+  color: #e6ffff;
+  overflow:hidden;
+  text-align: center;
+}
+
+.container form {
+  margin: 20px;
+}
+
+.container h1 {
+  font-family: Arial, sans-serif;
+  font-size: 30px;
+  color: #DDCCEE;
+  margin-top: 80px;
+}
+
+.container button {
+  width:70px;
+  height: 30px;
+  background-color: steelblue;
+  margin: 3px;
+}
+
+.container input {
+  width: 200px;
+  height: 15px;
+  font-size: 15px;
+  margin: 2px;
+  padding: 5px;
+  transition: all 0.2s ease-in-out;
+}
+
+.output {
+  display: inline-block;
+}
+
+____________________
+
+BACKEND
+
+from flask import Flask, render_template, request, send_file
+from geopy.geocoders import Nominatim
+import pandas
+import datetime
+
+app=Flask(__name__)
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route('/success-table', methods=['POST'])
+def success_table():
+    global filename
+    if request.method=="POST":
+        file=request.files['file']
+        try:
+            df=pandas.read_csv(file)
+            gc=Nominatim(scheme='http')
+            df["coordinates"]=df["Address"].apply(gc.geocode)
+            df['Latitude'] = df['coordinates'].apply(lambda x: x.latitude if x != None else None)
+            df['Longitude'] = df['coordinates'].apply(lambda x: x.longitude if x != None else None)
+            df=df.drop("coordinates",1)
+            filename=datetime.datetime.now().strftime("sample_files/%Y-%m-%d-%H-%M-%S-%f"+".csv")
+            df.to_csv(filename,index=None)
+            return render_template("index.html", text=df.to_html(), btn='download.html')
+        except Exception as e:
+            return render_template("index.html", text=str(e))
+
+@app.route("/download-file/")
+def download():
+    return send_file(filename, attachment_filename='yourfile.csv', as_attachment=True)
+
+if __name__=="__main__":
+    app.run(debug=True)
+    
+____________________
+
+DOWNLOAD BUTTON
+
+<!DOCTYPE html>
+<html lang="en">
+<div class="download">
+<a href={{url_for('download')}} target="blank"> <button class="btn">  Download </button></a>
+</div>
+</html>
+
+
