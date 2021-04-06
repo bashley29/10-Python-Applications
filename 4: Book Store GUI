@@ -301,3 +301,4 @@ class Database:
 
     def __delete__(self):
         self.conn.close()
+        
